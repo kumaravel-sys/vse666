@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Trainer - VSE</title>
+<style>
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:#f5f7fb; margin:0; padding:0; color:#111; }
+header { background:#0f1724; color:white; padding:12px 20px; display:flex; justify-content:space-between; align-items:center }
+header h1 { margin:0; font-size:18px }
+.container { padding:20px; max-width:1100px; margin:24px auto; background:white; border-radius:10px; box-shadow:0 6px 20px rgba(10,20,40,0.06) }
+.row { display:flex; gap:16px; align-items:flex-start; }
+input, button, select { padding:10px; border-radius:6px; border:1px solid #cbd5e1; font-size:14px }
+button { cursor:pointer; background:#0f1724; color:white; border:none }
+.hidden { display:none }
+.left { flex:1 }
+.right { width:420px }
+.search-suggestions { background:#fff; border:1px solid #e2e8f0; margin-top:6px; max-height:200px; overflow:auto; border-radius:6px; }
+.suggest-item { padding:8px; cursor:pointer; border-bottom:1px solid #f1f5f9 }
+.suggest-item:hover { background:#f8fafc }
+table { width:100%; border-collapse:collapse; margin-top:12px }
+th, td { text-align:left; padding:8px; border-bottom:1px solid #f1f5f9 }
+.card { padding:12px; border-radius:8px; background:#fff; box-shadow:0 4px 10px rgba(15,23,42,0.04); }
+.small { font-size:13px; color:#475569 }
+.top3 { background: linear-gradient(90deg,#fef3c7,#fecaca); padding:4px 8px; border-radius:6px; font-weight:600 }
+.danger { color:#dc2626 }
+footer { text-align:center; padding:16px; color:#475569; font-size:13px }
+</style>
+</head>
+<body>
+<header>
+<h1>Stock Trainer — Virtual Trading</h1>
+<div id="header-actions"></div>
+</header>
+
+<main class="container">
+<section id="view-login">
+<h2>Login / Sign up</h2>
+<p class="small">Use any email & password (virtual). Admin: <b>admin6@vse.com</b></p>
+<div style="max-width:520px">
+<input id="email" type="email" placeholder="Email" style="width:100%; margin-bottom:8px" />
+<input id="password" type="password" placeholder="Password" style="width:100%; margin-bottom:8px" />
+<div style="display:flex; gap:8px;">
+<button id="btn-login">Login / Create account</button>
+<button id="btn-guest" style="background:#334155">Guest (auto)</button>
+</div>
+<p id="login-msg" class="small" style="margin-top:10px;color:#475569"></p>
+</div>
+</section>
+
+<section id="view-dashboard" class="hidden">
+<div style="display:flex; justify-content:space-between; align-items:center;">
+<h2>Dashboard</h2>
+<div>
+<span id="user-email" class="small"></span>
+<button id="btn-logout" style="margin-left:12px;background:#ef4444">Logout</button>
+</div>
+</div>
+
+<div class="row" style="margin-top:12px">
+<div class="left">
+<div class="card">
+<div style="display:flex; gap:12px; align-items:center;">
+<input id="search-input" placeholder="Search company by name (e.g., type 'ta' to see Tata...)" style="flex:1" />
+<select id="exchange-select" title="Preferred exchange">
+<option value="AUTO">Auto-detect exchange</option>
+<option value="NSE">NSE</option>
+<option value="BSE">BSE</option>
+<option value="NASDAQ">NASDAQ</option>
+</select>
+<button id="btn-search">Search</button>
+</div>
+<div id="suggestions" class="search-suggestions hidden"></div>
+</div>
+
+<div id="stock-panel" class="card hidden" style="margin-top:12px">
+<h3 id="stock-name">Select a company</h3>
+<div id="tv-widget-wrap" style="height:420px"></div>
+<div style="display:flex; gap:10px; margin-top:8px; align-items:center;">
+<div class="small">Price: <b id="live-price">-</b></div>
+<div class="small">Symbol: <b id="selected-symbol">-</b></div>
+<div style="margin-left:auto; display:flex; gap:8px; align-items:center">
+<input id="qty" type="number" min="1" value="1" style="width:100px"/>
+<button id="btn-buy">Buy</button>
+<button id="btn-sell" style="background:#ef4444">Sell</button>
+</div>
+</div>
+</div>
+
+<div class="card" style="margin-top:12px">
+<h3>Portfolio</h3>
+<div class="small">Balance: <b id="balance">-</b></div>
+<table id="portfolio-table">
+<thead><tr><th>Symbol</th><th>Qty</th><th>Avg Price</th><th>Curr Price</th><th>Value</th><th>Action</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+
+<div class="right">
+<div class="card">
+<h3>Quick info</h3>
+<div class="small">Initial virtual capital: <b>₹50,000</b></div>
+<div class="small" style="margin-top:6px">Finnhub status: <span id="finnhub-ok">checking...</span></div>
+<hr/>
+<h4>Recent trades</h4>
+<ul id="trade-log" style="max-height:260px; overflow:auto; padding-left:18px"></ul>
+</div>
+
+<div id="admin-link-card" class="card hidden" style="margin-top:12px">
+<h3>Admin Panel</h3>
+<div class="small">You are logged in as admin. <button id="btn-open-admin">Open Admin Panel</button></div>
+</div>
+</div>
+</div>
+</section>
+
+<section id="view-admin" class="hidden">
+<div style="display:flex; justify-content:space-between; align-items:center;">
+<h2>Admin Panel</h2>
+<div>
+<span class="small">Admin: <b id="admin-email-label"></b></span>
+<button id="btn-admin-back" style="margin-left:12px;background:#334155">Back</button>
+</div>
+</div>
+
+<div class="card" style="margin-top:12px">
+<h3>All users (sorted by profit)</h3>
+<table id="admin-users-table">
+<thead><tr><th>#</th><th>Email</th><th>Balance</th><th>Holdings Value</th><th>Total Value</th><th>Profit/Loss</th></tr></thead>
+<tbody></tbody>
+</table>
+<div style="margin-top:10px" class="small">Top 3 users will be highlighted. You can use this to determine prizes.</div>
+</div>
+</section>
+</main>
+
+<footer>
+Made for demo — virtual trades only. Finnhub API used for live quotes & search.
+</footer>
+
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script type="module">
+
+const FIREBASE_CONFIG = {
+apiKey: "AIzaSyCX5X_djKb55aq9zcZyjrP7gk1VKL7RNr4",
+authDomain: "share-f6383.firebaseapp.com",
+projectId: "share-f6383",
+storageBucket: "share-f6383.firebasestorage.app",
+messagingSenderId: "697524043",
+appId: "1:697524043:web:290e5d3c66a4ad15cc52ce"
+};
+
+const FINNHUB_API = "d3bm7n1r01qqg7bv706gd3bm7n1r01qqg7bv7070";
+const ADMIN_EMAIL = "admin6@vse.com";
+const ADMIN_PASSWORD = "adminvse2k25";
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// UI Elements
+const viewLogin = document.getElementById('view-login');
+const viewDashboard = document.getElementById('view-dashboard');
+const viewAdmin = document.getElementById('view-admin');
+const btnLogin = document.getElementById('btn-login');
+const btnGuest = document.getElementById('btn-guest');
+const btnLogout = document.getElementById('btn-logout');
+const emailEl = document.getElementById('email');
+const pwdEl = document.getElementById('password');
+const loginMsg = document.getElementById('login-msg');
+const userEmailLabel = document.getElementById('user-email');
+const balanceEl = document.getElementById('balance');
+const portfolioTableBody = document.querySelector('#portfolio-table tbody');
+const tradeLog = document.getElementById('trade-log');
+const searchInput = document.getElementById('search-input');
+const btnSearch = document.getElementById('btn-search');
+const suggestionsBox = document.getElementById('suggestions');
+const stockPanel = document.getElementById('stock-panel');
+const stockNameEl = document.getElementById('stock-name');
+const tvWidgetWrap = document.getElementById('tv-widget-wrap');
+const livePriceEl = document.getElementById('live-price');
+const selectedSymbolEl = document.getElementById('selected-symbol');
+const qtyEl = document.getElementById('qty');
+const btnBuy = document.getElementById('btn-buy');
+const btnSell = document.getElementById('btn-sell');
+const finnhubStatusEl = document.getElementById('finnhub-ok');
+const adminLinkCard = document.getElementById('admin-link-card');
+const btnOpenAdmin = document.getElementById('btn-open-admin');
+const adminUsersTableBody = document.querySelector('#admin-users-table tbody');
+const adminEmailLabel = document.getElementById('admin-email-label');
+const btnAdminBack = document.getElementById('btn-admin-back');
+
+let currentUser = null;
+let currentUserDoc = null;
+let selectedCompany = null;
+let priceInterval = null;
+
+/* -----------------------
+Helper Functions
+----------------------- */
+function show(view){
+viewLogin.classList.add('hidden');
+viewDashboard.classList.add('hidden');
+viewAdmin.classList.add('hidden');
+view.classList.remove('hidden');
+}
+function money(x){return '₹'+Number(x).toLocaleString('en-IN',{maximumFractionDigits:2});}
+
+async function ensureUserDoc(uid,email){
+const ref = doc(db,'users',uid);
+const snap = await getDoc(ref);
+if(!snap.exists()){
+const initial = {email,balance:50000,portfolio:{},trades:[],createdAt:Date.now()};
+await setDoc(ref,initial);
+return initial;
+}
+return snap.data();
+}
+
+async function fetchFinnhubSearch(q){
+const url=`https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${FINNHUB_API}`;
+const res=await fetch(url);
+return res.json();
+}
+
+async function fetchFinnhubQuote(symbol){
+const url=`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API}`;
+const res=await fetch(url);
+return res.json();
+}
+
+function getTradingViewSymbol(symbol){
+if(symbol.endsWith(".NS")) return "NSE:"+symbol.replace(".NS","");
+if(symbol.endsWith(".BO")) return "BSE:"+symbol.replace(".BO","");
+return "NSE:"+symbol;
+}
+
+function renderTradingView(displaySymbol){
+tvWidgetWrap.innerHTML='';
+new TradingView.widget({
+width:"100%",
+height:420,
+symbol:displaySymbol,
+interval:"60",
+timezone:"Asia/Kolkata",
+theme:"light",
+container_id:"tv-widget-wrap"
+});
+}
+
+/* -----------------------
+Auth & Login
+----------------------- */
+
+btnLogin.addEventListener('click',async()=>{
+const email=emailEl.value.trim();
+const pwd=pwdEl.value.trim();
+if(!email || !pwd){loginMsg.textContent="Enter email & password";return;}
+try{
+const cred=await signInWithEmailAndPassword(auth,email,pwd);
+currentUser=cred.user;
+currentUserDoc=await ensureUserDoc(currentUser.uid,email);
+showDashboardView();
+}catch(err){
+if(err.code==='auth/user-not-found'){
+try{
+const cred=await createUserWithEmailAndPassword(auth,email,pwd);
+currentUser=cred.user;
+currentUserDoc=await ensureUserDoc(currentUser.uid,email);
+showDashboardView();
+}catch(err2){loginMsg.textContent="Error: "+err2.message;}
+}else{loginMsg.textContent="Error: "+err.message;}
+}
+});
+
+btnGuest.addEventListener('click',async()=>{
+const email="guest"+Date.now()+"@vse.com";
+const pwd="guest"+Date.now();
+try{
+const cred=await createUserWithEmailAndPassword(auth,email,pwd);
+currentUser=cred.user;
+currentUserDoc=await ensureUserDoc(currentUser.uid,email);
+showDashboardView();
+}catch(err){loginMsg.textContent="Error: "+err.message;}
+});
+
+btnLogout.addEventListener('click',async()=>{
+await signOut(auth);
+currentUser=null;
+currentUserDoc=null;
+show(viewLogin);
+});
+
+/* -----------------------
+Dashboard Rendering
+----------------------- */
+async function showDashboardView(){
+show(viewDashboard);
+userEmailLabel.textContent=currentUser.email;
+balanceEl.textContent=money(currentUserDoc.balance);
+adminLinkCard.classList.toggle('hidden',currentUser.email!==ADMIN_EMAIL);
+renderPortfolio();
+finnhubStatusEl.textContent="ok";
+}
+
+/* -----------------------
+Portfolio & Trading
+----------------------- */
+function renderPortfolio(){
+portfolioTableBody.innerHTML="";
+for(const sym in currentUserDoc.portfolio){
+const item=currentUserDoc.portfolio[sym];
+const tr=document.createElement('tr');
+tr.innerHTML=`<td>${sym}</td><td>${item.qty}</td><td>${money(item.avgPrice)}</td><td>-</td><td>-</td><td>-</td>`;
+portfolioTableBody.appendChild(tr);
+}
+}
+
+async function updatePriceAndPortfolio(){
+for(const sym in currentUserDoc.portfolio){
+const quote=await fetchFinnhubQuote(sym);
+const row=[...portfolioTableBody.rows].find(r=>r.cells[0].textContent===sym);
+if(row){row.cells[3].textContent=money(quote.c); row.cells[4].textContent=money(quote.c*currentUserDoc.portfolio[sym].qty);}
+}
+}
+
+btnBuy.addEventListener('click',async()=>{
+if(!selectedCompany)return;
+const qty=parseInt(qtyEl.value)||1;
+const quote=await fetchFinnhubQuote(selectedCompany.symbol);
+const cost=quote.c*qty;
+if(currentUserDoc.balance<cost){alert("Insufficient balance");return;}
+currentUserDoc.balance-=cost;
+if(currentUserDoc.portfolio[selectedCompany.symbol]){
+const old=currentUserDoc.portfolio[selectedCompany.symbol];
+currentUserDoc.portfolio[selectedCompany.symbol]={qty:old.qty+qty, avgPrice:((old.qty*old.avgPrice)+(qty*quote.c))/(old.qty+qty)};
+}else{currentUserDoc.portfolio[selectedCompany.symbol]={qty, avgPrice:quote.c};}
+currentUserDoc.trades.push({type:"BUY",symbol:selectedCompany.symbol,qty,price:quote.c,time:Date.now()});
+await setDoc(doc(db,'users',currentUser.uid),currentUserDoc);
+renderPortfolio();
+updatePriceAndPortfolio();
+tradeLog.innerHTML=`<li>${selectedCompany.symbol} BUY ${qty} @ ${money(quote.c)}</li>`+tradeLog.innerHTML;
+balanceEl.textContent=money(currentUserDoc.balance);
+});
+
+btnSell.addEventListener('click',async()=>{
+if(!selectedCompany)return;
+const qty=parseInt(qtyEl.value)||1;
+if(!currentUserDoc.portfolio[selectedCompany.symbol] || currentUserDoc.portfolio[selectedCompany.symbol].qty<qty){alert("Not enough shares");return;}
+const quote=await fetchFinnhubQuote(selectedCompany.symbol);
+currentUserDoc.portfolio[selectedCompany.symbol].qty-=qty;
+currentUserDoc.balance+=quote.c*qty;
+currentUserDoc.trades.push({type:"SELL",symbol:selectedCompany.symbol,qty,price:quote.c,time:Date.now()});
+if(currentUserDoc.portfolio[selectedCompany.symbol].qty===0) delete currentUserDoc.portfolio[selectedCompany.symbol];
+await setDoc(doc(db,'users',currentUser.uid),currentUserDoc);
+renderPortfolio();
+updatePriceAndPortfolio();
+tradeLog.innerHTML=`<li>${selectedCompany.symbol} SELL ${qty} @ ${money(quote.c)}</li>`+tradeLog.innerHTML;
+balanceEl.textContent=money(currentUserDoc.balance);
+});
+
+/* -----------------------
+Search Companies
+----------------------- */
+btnSearch.addEventListener('click',async()=>{
+const q=searchInput.value.trim();
+if(!q)return;
+const results=await fetchFinnhubSearch(q);
+suggestionsBox.innerHTML="";
+if(results.count===0){suggestionsBox.innerHTML="<div class='small'>No results found</div>"; suggestionsBox.classList.remove('hidden'); return;}
+results.result.forEach(r=>{
+const div=document.createElement('div');
+div.className='suggest-item';
+div.textContent=r.description+" ("+r.symbol+")";
+div.addEventListener('click',()=>{selectCompany(r); suggestionsBox.classList.add('hidden');});
+suggestionsBox.appendChild(div);
+});
+suggestionsBox.classList.remove('hidden');
+});
+
+function selectCompany(company){
+selectedCompany=company;
+stockPanel.classList.remove('hidden');
+stockNameEl.textContent=company.description;
+selectedSymbolEl.textContent=company.symbol;
+renderTradingView(getTradingViewSymbol(company.symbol));
+fetchFinnhubQuote(company.symbol).then(q=>livePriceEl.textContent=money(q.c));
+}
+
+/* -----------------------
+Admin Panel
+----------------------- */
+btnOpenAdmin.addEventListener('click',async()=>{
+adminEmailLabel.textContent=currentUser.email;
+show(viewAdmin);
+adminUsersTableBody.innerHTML="";
+const usersSnap=await getDocs(collection(db,'users'));
+let usersArr=[];
+usersSnap.forEach(doc=>{const data=doc.data();usersArr.push({email:data.email,balance:data.balance,portfolio:data.portfolio});});
+usersArr.forEach((u,i)=>{
+let portfolioValue=0;
+for(const sym in u.portfolio){portfolioValue+=u.portfolio[sym].qty*u.portfolio[sym].avgPrice;}
+const total=u.balance+portfolioValue;
+const profit=total-50000;
+const tr=document.createElement('tr');
+tr.innerHTML=`<td>${i+1}</td><td>${u.email}</td><td>${money(u.balance)}</td><td>${money(portfolioValue)}</td><td>${money(total)}</td><td class="${profit>=0?'':'danger'}">${money(profit)}</td>`;
+if(i<3) tr.classList.add('top3');
+adminUsersTableBody.appendChild(tr);
+});
+});
+
+btnAdminBack.addEventListener('click',()=>{showDashboardView();});
+
+</script>
+</body>
+</html>
